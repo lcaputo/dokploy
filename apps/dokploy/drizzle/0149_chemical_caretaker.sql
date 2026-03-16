@@ -1,0 +1,2 @@
+ALTER TABLE "ssh-key" ADD COLUMN "userId" text;--> statement-breakpoint
+ALTER TABLE "ssh-key" ADD CONSTRAINT "ssh-key_userId_user_id_fk" FOREIGN KEY ("userId") REFERENCES "public"."user"("id") ON DELETE set null ON UPDATE no action;

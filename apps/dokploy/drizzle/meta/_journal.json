@@ -1044,6 +1044,13 @@
       "when": 1772945035829,
       "tag": "0148_sharp_power_man",
       "breakpoints": true
+    },
+    {
+      "idx": 149,
+      "version": "7",
+      "when": 1773677488484,
+      "tag": "0149_chemical_caretaker",
+      "breakpoints": true
     }
   ]
 }

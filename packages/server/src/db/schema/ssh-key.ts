@@ -8,6 +8,7 @@ import { organization } from "./account";
 import { applications } from "./application";
 import { compose } from "./compose";
 import { server } from "./server";
+import { user } from "./user";
 
 export const sshKeys = pgTable("ssh-key", {
 	sshKeyId: text("sshKeyId")
@@ -25,6 +26,7 @@ export const sshKeys = pgTable("ssh-key", {
 	organizationId: text("organizationId")
 		.notNull()
 		.references(() => organization.id, { onDelete: "cascade" }),
+	userId: text("userId").references(() => user.id, { onDelete: "set null" }),
 });
 
 export const sshKeysRelations = relations(sshKeys, ({ many, one }) => ({
@@ -34,6 +36,10 @@ export const sshKeysRelations = relations(sshKeys, ({ many, one }) => ({
 	organization: one(organization, {
 		fields: [sshKeys.organizationId],
 		references: [organization.id],
+	}),
+	user: one(user, {
+		fields: [sshKeys.userId],
+		references: [user.id],
 	}),
 }));
 
@@ -50,6 +56,7 @@ export const apiCreateSshKey = createSchema
 		privateKey: true,
 		publicKey: true,
 		organizationId: true,
+		userId: true,
 	})
 	.merge(sshKeyCreate.pick({ privateKey: true }));
 

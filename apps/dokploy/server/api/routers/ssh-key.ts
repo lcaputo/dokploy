@@ -7,7 +7,7 @@ import {
 } from "@dokploy/server";
 import { db } from "@dokploy/server/db";
 import { TRPCError } from "@trpc/server";
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import {
 	apiCreateSshKey,
@@ -26,6 +26,7 @@ export const sshRouter = createTRPCRouter({
 				await createSshKey({
 					...input,
 					organizationId: ctx.session.activeOrganizationId,
+					userId: ctx.user.id,
 				});
 			} catch (error) {
 				throw new TRPCError({
@@ -41,6 +42,15 @@ export const sshRouter = createTRPCRouter({
 			try {
 				const sshKey = await findSSHKeyById(input.sshKeyId);
 				if (sshKey.organizationId !== ctx.session.activeOrganizationId) {
+					throw new TRPCError({
+						code: "UNAUTHORIZED",
+						message: "You are not allowed to delete this SSH key",
+					});
+				}
+				if (
+					ctx.user.role === "member" &&
+					sshKey.userId !== ctx.user.id
+				) {
 					throw new TRPCError({
 						code: "UNAUTHORIZED",
 						message: "You are not allowed to delete this SSH key",
@@ -63,11 +73,26 @@ export const sshRouter = createTRPCRouter({
 					message: "You are not allowed to access this SSH key",
 				});
 			}
+			if (
+				ctx.user.role === "member" &&
+				sshKey.userId !== ctx.user.id
+			) {
+				throw new TRPCError({
+					code: "UNAUTHORIZED",
+					message: "You are not allowed to access this SSH key",
+				});
+			}
 			return sshKey;
 		}),
 	all: protectedProcedure.query(async ({ ctx }) => {
+		const isMember = ctx.user.role === "member";
 		return await db.query.sshKeys.findMany({
-			where: eq(sshKeys.organizationId, ctx.session.activeOrganizationId),
+			where: isMember
+				? and(
+						eq(sshKeys.organizationId, ctx.session.activeOrganizationId),
+						eq(sshKeys.userId, ctx.user.id),
+					)
+				: eq(sshKeys.organizationId, ctx.session.activeOrganizationId),
 			orderBy: desc(sshKeys.createdAt),
 		});
 	}),
@@ -82,6 +107,15 @@ export const sshRouter = createTRPCRouter({
 			try {
 				const sshKey = await findSSHKeyById(input.sshKeyId);
 				if (sshKey.organizationId !== ctx.session.activeOrganizationId) {
+					throw new TRPCError({
+						code: "UNAUTHORIZED",
+						message: "You are not allowed to update this SSH key",
+					});
+				}
+				if (
+					ctx.user.role === "member" &&
+					sshKey.userId !== ctx.user.id
+				) {
 					throw new TRPCError({
 						code: "UNAUTHORIZED",
 						message: "You are not allowed to update this SSH key",

@@ -8,6 +8,7 @@ import {
 import { db } from "@dokploy/server/db";
 import { TRPCError } from "@trpc/server";
 import { and, desc, eq } from "drizzle-orm";
+import { z } from "zod";
 import { createTRPCRouter, protectedProcedure } from "@/server/api/trpc";
 import {
 	apiCreateSshKey,
@@ -84,18 +85,21 @@ export const sshRouter = createTRPCRouter({
 			}
 			return sshKey;
 		}),
-	all: protectedProcedure.query(async ({ ctx }) => {
-		const isMember = ctx.user.role === "member";
-		return await db.query.sshKeys.findMany({
-			where: isMember
-				? and(
-						eq(sshKeys.organizationId, ctx.session.activeOrganizationId),
-						eq(sshKeys.userId, ctx.user.id),
-					)
-				: eq(sshKeys.organizationId, ctx.session.activeOrganizationId),
-			orderBy: desc(sshKeys.createdAt),
-		});
-	}),
+	all: protectedProcedure
+		.input(z.object({ userId: z.string().optional() }).optional())
+		.query(async ({ ctx, input }) => {
+			const isMember = ctx.user.role === "member";
+			const filterUserId = isMember
+				? ctx.user.id
+				: (input?.userId ?? ctx.user.id);
+			return await db.query.sshKeys.findMany({
+				where: and(
+					eq(sshKeys.organizationId, ctx.session.activeOrganizationId),
+					eq(sshKeys.userId, filterUserId),
+				),
+				orderBy: desc(sshKeys.createdAt),
+			});
+		}),
 	generate: protectedProcedure
 		.input(apiGenerateSSHKey)
 		.mutation(async ({ input }) => {

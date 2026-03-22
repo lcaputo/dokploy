@@ -1,5 +1,6 @@
 import { formatDistanceToNow } from "date-fns";
 import { KeyRound, Loader2, Trash2 } from "lucide-react";
+import { useState } from "react";
 import { toast } from "sonner";
 import { DialogAction } from "@/components/shared/dialog-action";
 import { Button } from "@/components/ui/button";
@@ -10,11 +11,37 @@ import {
 	CardHeader,
 	CardTitle,
 } from "@/components/ui/card";
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from "@/components/ui/select";
 import { api } from "@/utils/api";
 import { HandleSSHKeys } from "./handle-ssh-keys";
 
 export const ShowDestinations = () => {
-	const { data, isPending, refetch } = api.sshKey.all.useQuery();
+	const { data: currentUser } = api.user.get.useQuery();
+	const isAdmin =
+		currentUser?.role === "admin" || currentUser?.role === "owner";
+
+	const { data: members } = api.user.all.useQuery(undefined, {
+		enabled: isAdmin,
+	});
+
+	const [selectedUserId, setSelectedUserId] = useState<string | undefined>(
+		undefined,
+	);
+
+	const userId = isAdmin
+		? (selectedUserId ?? currentUser?.userId)
+		: undefined;
+
+	const { data, isPending, refetch } = api.sshKey.all.useQuery(
+		{ userId },
+		{ enabled: currentUser !== undefined },
+	);
 	const { mutateAsync, isPending: isRemoving } =
 		api.sshKey.remove.useMutation();
 
@@ -33,6 +60,29 @@ export const ShowDestinations = () => {
 						</CardDescription>
 					</CardHeader>
 					<CardContent className="space-y-2 py-8 border-t">
+						{isAdmin && members && members.length > 0 && (
+							<div className="flex flex-row items-center gap-2 mb-4">
+								<span className="text-sm text-muted-foreground whitespace-nowrap">
+									Viewing keys for:
+								</span>
+								<Select
+									value={selectedUserId ?? currentUser?.userId ?? ""}
+									onValueChange={(val) => setSelectedUserId(val)}
+								>
+									<SelectTrigger className="w-[220px]">
+										<SelectValue placeholder="Select user" />
+									</SelectTrigger>
+									<SelectContent>
+										{members.map((m) => (
+											<SelectItem key={m.userId} value={m.userId}>
+												{[m.user.firstName, m.user.lastName].filter(Boolean).join(" ") || m.user.email}
+												{m.userId === currentUser?.userId ? " (you)" : ""}
+											</SelectItem>
+										))}
+									</SelectContent>
+								</Select>
+							</div>
+						)}
 						{isPending ? (
 							<div className="flex flex-row gap-2 items-center justify-center text-sm text-muted-foreground min-h-[25vh]">
 								<span>Loading...</span>
@@ -44,9 +94,13 @@ export const ShowDestinations = () => {
 									<div className="flex flex-col items-center gap-3  min-h-[25vh] justify-center">
 										<KeyRound className="size-8 self-center text-muted-foreground" />
 										<span className="text-base text-muted-foreground text-center">
-											You don't have any SSH keys
+											{isAdmin && selectedUserId && selectedUserId !== currentUser?.userId
+												? "This user doesn't have any SSH keys"
+												: "You don't have any SSH keys"}
 										</span>
-										<HandleSSHKeys />
+										{(!selectedUserId || selectedUserId === currentUser?.userId) && (
+											<HandleSSHKeys />
+										)}
 									</div>
 								) : (
 									<div className="flex flex-col gap-4  min-h-[25vh]">
@@ -119,7 +173,9 @@ export const ShowDestinations = () => {
 										</div>
 
 										<div className="flex flex-row gap-2 flex-wrap w-full justify-end mr-4">
-											<HandleSSHKeys />
+											{(!selectedUserId || selectedUserId === currentUser?.userId) && (
+												<HandleSSHKeys />
+											)}
 										</div>
 									</div>
 								)}
